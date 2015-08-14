@@ -1,0 +1,43 @@
+cript to backup server core files and databases if need be
+#First, we timestamp the log
+echo "Record for today, `date`" >> $LPATH/$LOGFILE
+#Set any required variables
+DATE=$(date +"%m-%d-%Y")
+NAME=$(uname -n)
+LPATH=/root
+BPATH=/mnt/backup
+LOGFILE=daily-bk-$(uname -n).log
+#First, we need to clear the directory of any old backups.  Anything older then 7 days = byebye
+
+rm $BPATH/delete_these
+
+for i in `find $BPATH/* -mtime +7`; do echo $i >> $BPATH/delete_these; done
+
+if [ -f $BPATH/delete_these ];
+then
+        echo "deleting the following files that are older then 7 days" >> $LPATH/$LOGFILE; `cat $BPATH/delete_these >> $LPATH/$LOGFILE`; for i in `cat $BPATH/delete_these`; do rm -f $i; done
+else
+        echo "there are no files to delete" >> $LPATH/$LOGFILE
+fi
+
+#Next, let's make a backup of today's stuff.  But first, check if one backup exists; if so, then do not make another.
+
+if [ -f $BPATH/backup-$NAME-$DATE.tar ];
+then
+        echo "Backup exists for $DATE; aborting process" >> $LPATH/$LOGFILE;
+else
+        echo "creating backup for today, $DATE" >> $LPATH/$LOGFILE; tar -cf $BPATH/backup-$NAME-$DATE.tar /etc/ /opt/ /var/www/
+fi
+
+#Finally, we need to dump the mysql databases for the wordpress instances
+
+if [ -f $BPATH/backup-gamenightdb-$NAME-$DATE.sql ];
+then
+        echo "DB Backup exists for $DATE; aborting process" >> $LPATH/$LOGFILE;
+else
+        echo "creating gamenight DB backup for today, $DATE" >> $LPATH/$LOGFILE; /usr/bin/mysqldump -u dbbackup -h localhost -p gamenight > /$BPATH/backup-gamenightdb-$NAME-$DATE.sql
+fi
+
+#Finally, tag the end of the record for today's actions.
+
+echo "End record for today, `date`" >> $LPATH/$LOGFILE
